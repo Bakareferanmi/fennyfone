@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  ShoppingBag, Search, Shield, Truck, Zap, Smartphone, Headphones, 
+import {
+  ShoppingBag, Search, Shield, Truck, Smartphone, Headphones,
   BatteryCharging, SmartphoneNfc, Watch, Filter, X, Plus, Minus, 
   Trash2, ArrowRight, Star, CheckCircle, MessageSquare, Menu, ChevronRight,
   Sparkles, ExternalLink, RefreshCw, Send, Tag, Phone
@@ -146,8 +146,62 @@ const CATEGORIES = [
   { name: 'Smart Wearables', icon: Watch }
 ];
 
+// Rotating hero ads. Each slide: text on the left, a 4:3 "stage" of product cards on the right.
+// Image `pos` classes are positioned in % of the stage so the collage scales on every screen.
+const HERO_SLIDE_MS = 5000;
+
+const HERO_SLIDES = [
+  {
+    id: 'laptops',
+    eyebrow: 'New Arrivals',
+    title: '2-in-1 Laptops',
+    text: 'Robust laptop, powerful tablet, and portable studio that adapts to the ways you work and create best.',
+    cta: 'Shop Now',
+    href: '#store',
+    bg: 'bg-gradient-to-br from-[#2028f5] via-[#1d2fd9] to-[#141a9e]',
+    images: [
+      { src: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=900&q=85', alt: '2-in-1 laptop', pos: 'left-[2%] top-[12%] w-[62%] aspect-[4/3] -rotate-3' },
+      { src: PRODUCTS[5].image, alt: 'Horizon Pad Pro tablet', pos: 'right-[2%] top-[4%] w-[32%] aspect-[3/4] rotate-6' },
+      { src: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=700&q=85', alt: 'Portable laptop', pos: 'right-[8%] bottom-[4%] w-[40%] aspect-[4/3] rotate-3' }
+    ],
+    chip: null
+  },
+  {
+    id: 'phones',
+    eyebrow: 'Flagship Phones',
+    title: 'Aether X Pro 5G',
+    text: '200MP camera, 120Hz AMOLED and 100W charging. Now 15% off, with the ArmorShield case to match.',
+    cta: 'Shop Phones',
+    href: '#store',
+    productIndex: 0,
+    bg: 'bg-gradient-to-br from-sky-700 via-blue-800 to-indigo-900',
+    images: [
+      { src: PRODUCTS[0].image, alt: 'Aether X Pro 5G', pos: 'right-[8%] top-[4%] w-[46%] aspect-[3/4] rotate-3' },
+      { src: PRODUCTS[3].image, alt: 'ArmorShield MagSafe Case', pos: 'left-[6%] bottom-[6%] w-[36%] aspect-square -rotate-6' }
+    ],
+    chip: { top: 'From $999', bottom: '15% OFF', pos: 'left-[4%] top-[10%]' }
+  },
+  {
+    id: 'audio',
+    eyebrow: 'Weekend Deal',
+    title: 'Sound That Moves',
+    text: 'Fenny SoundBuds Elite and AcousticPulse Studio. Use code FENNY10 at checkout for an extra 10% off.',
+    cta: 'Shop Audio',
+    href: '#store',
+    productIndex: 1,
+    bg: 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900',
+    images: [
+      { src: PRODUCTS[1].image, alt: 'Fenny SoundBuds Elite', pos: 'left-[4%] top-[10%] w-[46%] aspect-square -rotate-4' },
+      { src: PRODUCTS[6].image, alt: 'AcousticPulse Studio Headphone', pos: 'right-[4%] bottom-[6%] w-[42%] aspect-[4/5] rotate-5' }
+    ],
+    chip: { top: 'Use code', bottom: 'FENNY10', pos: 'right-[6%] top-[8%]' }
+  }
+];
+
 export default function App() {
   // Navigation & View States
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All Products');
   const [searchQuery, setSearchQuery] = useState('');
   const [cartItems, setCartItems] = useState([]);
@@ -178,6 +232,15 @@ export default function App() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Auto-rotate hero ads every few seconds; pauses on hover and restarts the timer on manual change
+  useEffect(() => {
+    if (heroPaused) return;
+    const timer = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % HERO_SLIDES.length);
+    }, HERO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, [heroPaused, activeSlide]);
 
   const triggerToast = (msg) => {
     setToastMessage(msg);
@@ -298,10 +361,14 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-              <Zap className="w-6 h-6 text-slate-950 fill-current" />
-            </div>
+          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <img
+              src="/logo.png"
+              alt="fennyfone logo"
+              width="36"
+              height="43"
+              className="h-9 w-auto group-hover:scale-105 transition-transform"
+            />
             <span className="text-2xl font-black tracking-wider bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
               fennyfone<span className="text-cyan-400">.</span>
             </span>
@@ -350,59 +417,102 @@ export default function App() {
           </div>
         )}
       </header>
-      <section className="relative px-4 sm:px-6 lg:px-8 pt-6 pb-8">
+      {/* Hero ads: rotates automatically every few seconds */}
+      <section className="relative px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-8">
         <div className="max-w-7xl mx-auto">
-          <div className="relative overflow-hidden rounded-2xl bg-[#2028f5] min-h-[300px] sm:min-h-[340px] flex items-center">
+          <div
+            className="relative overflow-hidden rounded-3xl h-[560px] sm:h-[470px] lg:h-[440px] shadow-2xl shadow-black/40"
+            onMouseEnter={() => setHeroPaused(true)}
+            onMouseLeave={() => setHeroPaused(false)}
+            onFocus={() => setHeroPaused(true)}
+            onBlur={() => setHeroPaused(false)}
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Featured offers"
+          >
+            {HERO_SLIDES.map((slide, i) => {
+              const isActive = i === activeSlide;
+              return (
+                <div
+                  key={slide.id}
+                  aria-hidden={!isActive}
+                  className={`absolute inset-0 grid grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1 lg:grid-cols-2 items-center transition-opacity duration-700 ease-in-out ${slide.bg} ${
+                    isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
+                  }`}
+                >
+                  {/* Decorative glow */}
+                  <div className="pointer-events-none absolute -right-24 -bottom-32 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
+                  <div className="pointer-events-none absolute -left-24 -top-32 w-80 h-80 rounded-full bg-cyan-300/10 blur-3xl" />
 
-            {/* Hero Content */}
-            <div className="relative z-20 w-full lg:w-1/2 px-7 sm:px-10 lg:px-12 py-12">
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
-                2-in-1 Laptops
-              </h1>
+                  {/* Text */}
+                  <div className="relative z-20 px-7 sm:px-10 lg:px-14 pt-8 lg:pt-0 lg:pb-8">
+                    <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-widest text-cyan-200">
+                      {slide.eyebrow}
+                    </span>
+                    <h1 className="mt-2 text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
+                      {slide.title}
+                    </h1>
+                    <p className="mt-3 max-w-md text-sm sm:text-base text-white/90 leading-relaxed line-clamp-3">
+                      {slide.text}
+                    </p>
+                    <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-3">
+                      <a
+                        href={slide.href}
+                        tabIndex={isActive ? 0 : -1}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors"
+                      >
+                        {slide.cta} <ArrowRight className="w-4 h-4" />
+                      </a>
+                      {slide.productIndex !== undefined && (
+                        <button
+                          tabIndex={isActive ? 0 : -1}
+                          onClick={() => setSelectedProduct(PRODUCTS[slide.productIndex])}
+                          className="px-5 py-2.5 rounded-lg border border-white/40 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
+                        >
+                          View Details
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-              <p className="mt-3 max-w-md text-sm sm:text-base text-white/90 leading-relaxed">
-                Robust laptop, powerful tablet, and portable studio
-                that adapts to the ways you work and create best.
-              </p>
+                  {/* Visual: a 4:3 stage so the collage keeps its shape at any width */}
+                  <div className="relative z-10 h-full min-h-0 w-full flex items-center justify-center px-6 pt-2 pb-14 lg:p-8">
+                    <div className="relative h-full max-w-full aspect-[4/3]">
+                      {slide.images.map(img => (
+                        <img
+                          key={img.alt}
+                          src={img.src}
+                          alt={img.alt}
+                          loading={i === 0 ? 'eager' : 'lazy'}
+                          className={`absolute object-cover rounded-2xl shadow-2xl shadow-black/40 ring-1 ring-white/20 ${img.pos}`}
+                        />
+                      ))}
+                      {slide.chip && (
+                        <div className={`absolute z-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 px-4 py-2 text-white shadow-xl ${slide.chip.pos}`}>
+                          <div className="text-[10px] sm:text-xs uppercase tracking-wider text-white/80">{slide.chip.top}</div>
+                          <div className="text-base sm:text-xl font-black leading-tight">{slide.chip.bottom}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
 
-              <a
-                href="#store"
-                className="inline-flex items-center mt-7 px-5 py-2.5 rounded-md bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
-              >
-                Shop Now
-              </a>
+            {/* Slide dots */}
+            <div className="absolute z-20 bottom-5 left-1/2 -translate-x-1/2 lg:left-14 lg:translate-x-0 flex items-center gap-2">
+              {HERO_SLIDES.map((slide, i) => (
+                <button
+                  key={slide.id}
+                  onClick={() => setActiveSlide(i)}
+                  aria-label={`Show offer ${i + 1}: ${slide.title}`}
+                  aria-current={i === activeSlide}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === activeSlide ? 'w-8 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'
+                  }`}
+                />
+              ))}
             </div>
-
-            {/* Hero Products */}
-            <div className="absolute right-0 top-0 h-full w-full lg:w-[58%] pointer-events-none">
-
-              {/* Laptop */}
-              <img
-                src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=900&q=85"
-                alt="2-in-1 laptop"
-                className="absolute w-[48%] sm:w-[44%] lg:w-[48%] right-[25%] top-[18%] rotate-[-2deg] object-contain drop-shadow-2xl"
-              />
-
-              {/* Tablet */}
-              <img
-                src={PRODUCTS[5].image}
-                alt="2-in-1 tablet"
-                className="absolute w-[25%] sm:w-[23%] lg:w-[27%] right-[15%] top-[13%] rotate-[8deg] object-contain drop-shadow-2xl"
-              />
-
-              {/* Second Device */}
-              <img
-                src="https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=700&q=85"
-                alt="portable laptop"
-                className="absolute w-[30%] sm:w-[28%] lg:w-[32%] right-[-2%] bottom-[7%] rotate-[3deg] object-contain drop-shadow-2xl"
-              />
-
-            </div>
-
-            {/* Decorative glow */}
-            <div className="absolute -right-20 -bottom-32 w-96 h-96 rounded-full bg-indigo-400/30 blur-3xl" />
-            <div className="absolute -left-20 -top-32 w-80 h-80 rounded-full bg-blue-400/20 blur-3xl" />
-
           </div>
         </div>
       </section>
@@ -898,10 +1008,8 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-900">
             
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-slate-950 fill-current" />
-                </div>
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="fennyfone logo" width="32" height="38" className="h-8 w-auto" />
                 <span className="text-xl font-black text-white">fennyfone<span className="text-cyan-400">.</span></span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
