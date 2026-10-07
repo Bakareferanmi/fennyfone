@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import {
-  ShoppingBag, Search, Shield, Truck, Smartphone, Headphones,
-  BatteryCharging, SmartphoneNfc, Watch, Filter, X, Plus, Minus, 
-  Trash2, ArrowRight, Star, CheckCircle, MessageSquare, Menu, ChevronRight,
-  Sparkles, ExternalLink, RefreshCw, Send, Tag, Phone
+  ShoppingBag, ShoppingCart, Search, ShieldCheck, Truck, Smartphone, Headphones,
+  BatteryCharging, Watch, Filter, X, Plus, Minus, Trash2, ArrowRight, Star,
+  CheckCircle, MessageCircle, Menu, LayoutGrid, Send
 } from 'lucide-react';
 
 const PRODUCTS = [
   {
     id: 'p1',
     name: 'Aether X Pro 5G',
-    category: 'Smartphones',
+    category: 'Phones & Tablets',
     price: 999,
     originalPrice: 1199,
     rating: 4.9,
@@ -90,7 +89,7 @@ const PRODUCTS = [
   {
     id: 'p6',
     name: 'Horizon Pad Pro 11"',
-    category: 'Smartphones',
+    category: 'Phones & Tablets',
     price: 649,
     originalPrice: 699,
     rating: 4.8,
@@ -129,7 +128,7 @@ const PRODUCTS = [
     reviewsCount: 143,
     badge: 'New',
     badgeType: 'new',
-    image: 'https://images.unsplash.com/photo-1622445268465-843d31221b21?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1566554738544-d962991c3fee?auto=format&fit=crop&w=800&q=80',
     specs: ['15W Magnetic Fast Wireless', '20W PD Output Port', 'Foldable Kickstand', 'Slim Pocket Profile'],
     colors: ['#0f172a', '#38bdf8', '#f43f5e'],
     description: 'Snap on and charge wirelessly everywhere you go with an integrated kickstand for hands-free video view.',
@@ -138,13 +137,30 @@ const PRODUCTS = [
 ];
 
 const CATEGORIES = [
-  { name: 'All Products', icon: Sparkles },
-  { name: 'Smartphones', icon: Smartphone },
+  { name: 'All Products', icon: LayoutGrid },
+  { name: 'Phones & Tablets', icon: Smartphone },
   { name: 'Audio', icon: Headphones },
   { name: 'Charging & Power', icon: BatteryCharging },
-  { name: 'Cases & Protection', icon: SmartphoneNfc },
+  { name: 'Cases & Protection', icon: ShieldCheck },
   { name: 'Smart Wearables', icon: Watch }
 ];
+
+// Resize an Unsplash URL to the width a slot actually needs (smaller downloads, faster page)
+const sized = (url, w) => url.replace(/([?&])w=\d+/, `$1w=${w}`);
+
+// Image that never shows a broken-image icon: falls back to a branded tile if the URL fails
+function SafeImage({ src, alt, className = '', ...rest }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  if (failed) {
+    return (
+      <div role="img" aria-label={alt} className={`${className} flex items-center justify-center bg-gradient-to-br from-slate-800 to-blue-950`}>
+        <img src="/logo.png" alt="" className="w-1/3 max-w-[64px] h-auto opacity-70" />
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} decoding="async" onError={() => setFailed(true)} {...rest} />;
+}
 
 // Rotating hero ads. Each slide: text on the left, a 4:3 "stage" of product cards on the right.
 // Image `pos` classes are positioned in % of the stage so the collage scales on every screen.
@@ -198,10 +214,201 @@ const HERO_SLIDES = [
   }
 ];
 
+// Hero ads. Own state so the 5s timer only re-renders the banner, not the whole page.
+function HeroCarousel({ onViewProduct }) {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % HERO_SLIDES.length);
+    }, HERO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, [paused, activeSlide]);
+
+  return (
+    <section className="relative px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-6 sm:pb-8">
+      <div className="max-w-7xl mx-auto">
+        <div
+          className="relative overflow-hidden rounded-2xl sm:rounded-3xl h-[250px] sm:h-[390px] lg:h-[440px] shadow-2xl shadow-black/40"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={() => setPaused(false)}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Featured offers"
+        >
+          {HERO_SLIDES.map((slide, i) => {
+            const isActive = i === activeSlide;
+            return (
+              <div
+                key={slide.id}
+                aria-hidden={!isActive}
+                className={`absolute inset-0 grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:grid-cols-2 items-center transition-opacity duration-700 ease-in-out ${slide.bg} ${
+                  isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
+                }`}
+              >
+                <div className="pointer-events-none absolute -right-24 -bottom-32 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
+                <div className="pointer-events-none absolute -left-24 -top-32 w-80 h-80 rounded-full bg-cyan-300/10 blur-3xl" />
+
+                {/* Text */}
+                <div className="relative z-20 pl-5 pr-2 sm:pl-10 sm:pr-4 lg:pl-14 pb-5 sm:pb-6">
+                  <span className="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-cyan-200">
+                    {slide.eyebrow}
+                  </span>
+                  <h2 className="mt-1 sm:mt-2 text-[22px] leading-[1.15] sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
+                    {slide.title}
+                  </h2>
+                  <p className="hidden sm:block mt-3 max-w-md text-base text-white/90 leading-relaxed">
+                    {slide.text}
+                  </p>
+                  <div className="mt-3 sm:mt-7 flex flex-wrap items-center gap-3">
+                    <a
+                      href={slide.href}
+                      tabIndex={isActive ? 0 : -1}
+                      className="inline-flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg bg-white text-slate-900 text-xs sm:text-sm font-bold hover:bg-slate-100 transition-colors"
+                    >
+                      {slide.cta} <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </a>
+                    {slide.productIndex !== undefined && (
+                      <button
+                        tabIndex={isActive ? 0 : -1}
+                        onClick={() => onViewProduct(PRODUCTS[slide.productIndex])}
+                        className="hidden sm:inline-flex px-5 py-2.5 rounded-lg border border-white/40 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
+                      >
+                        View Details
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Visual */}
+                <div className="relative z-10 h-full min-h-0 flex items-center justify-center p-3 pb-6 sm:p-6 lg:p-8">
+                  {/* Phones: one product card keeps the banner short */}
+                  <SafeImage
+                    src={sized(slide.images[0].src, 400)}
+                    alt={slide.images[0].alt}
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    className="sm:hidden h-[82%] w-full object-cover rounded-xl rotate-3 shadow-xl shadow-black/40 ring-1 ring-white/20"
+                  />
+
+                  {/* Tablet and up: product collage on a 4:3 stage */}
+                  <div className="hidden sm:block relative w-full lg:w-auto lg:h-full aspect-[4/3]">
+                    {slide.images.map(img => (
+                      <SafeImage
+                        key={img.alt}
+                        src={sized(img.src, 600)}
+                        alt={img.alt}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        className={`absolute object-cover rounded-2xl shadow-2xl shadow-black/40 ring-1 ring-white/20 ${img.pos}`}
+                      />
+                    ))}
+                    {slide.chip && (
+                      <div className={`absolute z-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 px-4 py-2 text-white shadow-xl ${slide.chip.pos}`}>
+                        <div className="text-xs uppercase tracking-wider text-white/80">{slide.chip.top}</div>
+                        <div className="text-xl font-black leading-tight">{slide.chip.bottom}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Slide dots, aligned with the text column */}
+          <div className="absolute z-20 bottom-3 sm:bottom-5 left-5 sm:left-10 lg:left-14 flex items-center gap-2">
+            {HERO_SLIDES.map((slide, i) => (
+              <button
+                key={slide.id}
+                onClick={() => setActiveSlide(i)}
+                aria-label={`Show offer ${i + 1}: ${slide.title}`}
+                aria-current={i === activeSlide}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === activeSlide ? 'w-7 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Product card is memoised so rotating the hero or typing in the cart never re-renders the grid
+const ProductCard = memo(function ProductCard({ product, onSelect, onAdd }) {
+  return (
+    <div className="group relative bg-slate-950 rounded-2xl border border-slate-800/80 overflow-hidden flex flex-col hover:border-cyan-500/40 transition-all duration-300 hover:-translate-y-1 shadow-lg">
+      {product.badge && (
+        <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-500 text-slate-950 shadow-md">
+          {product.badge}
+        </div>
+      )}
+
+      <div
+        onClick={() => onSelect(product)}
+        className="relative aspect-square overflow-hidden bg-slate-900 cursor-pointer"
+      >
+        <SafeImage
+          src={sized(product.image, 500)}
+          alt={product.name}
+          width="500"
+          height="500"
+          loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <span className="px-4 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-white font-bold text-xs shadow-xl backdrop-blur-sm">
+            View Specs
+          </span>
+        </div>
+      </div>
+
+      <div className="p-5 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>{product.category}</span>
+            <div className="flex items-center gap-1 text-amber-400">
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span className="font-bold text-slate-300">{product.rating}</span>
+            </div>
+          </div>
+
+          <h3
+            onClick={() => onSelect(product)}
+            className="font-bold text-white text-base hover:text-cyan-400 transition-colors cursor-pointer line-clamp-1"
+          >
+            {product.name}
+          </h3>
+
+          <p className="text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
+            {product.description}
+          </p>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-slate-900 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-slate-500 line-through">${product.originalPrice}</div>
+            <div className="text-lg font-black text-white">${product.price}</div>
+          </div>
+
+          <button
+            onClick={() => onAdd(product)}
+            className="p-3 rounded-xl bg-slate-900 hover:bg-cyan-500 text-slate-300 hover:text-slate-950 border border-slate-800 hover:border-cyan-500 transition-all"
+            aria-label={`Add ${product.name} to cart`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function App() {
   // Navigation & View States
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [heroPaused, setHeroPaused] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All Products');
   const [searchQuery, setSearchQuery] = useState('');
   const [cartItems, setCartItems] = useState([]);
@@ -229,39 +436,53 @@ export default function App() {
     const handleScroll = () => {
       setScrolled(window.scrollY > 30);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Auto-rotate hero ads every few seconds; pauses on hover and restarts the timer on manual change
-  useEffect(() => {
-    if (heroPaused) return;
-    const timer = setInterval(() => {
-      setActiveSlide(prev => (prev + 1) % HERO_SLIDES.length);
-    }, HERO_SLIDE_MS);
-    return () => clearInterval(timer);
-  }, [heroPaused, activeSlide]);
-
-  const triggerToast = (msg) => {
+  const toastTimer = useRef(null);
+  const triggerToast = useCallback((msg) => {
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage('');
-    }, 3000);
-  };
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMessage(''), 2500);
+  }, []);
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
 
-  const addToCart = (product, selectedColor = null, qty = 1) => {
+  const addToCart = useCallback((product, selectedColor = null, qty = 1) => {
     const chosenColor = selectedColor || product.colors[0];
     setCartItems(prev => {
-      const existingIndex = prev.findIndex(item => item.id === product.id && item.color === chosenColor);
-      if (existingIndex > -1) {
-        const updated = [...prev];
-        updated[existingIndex].quantity += qty;
-        return updated;
+      const existing = prev.find(item => item.id === product.id && item.color === chosenColor);
+      if (existing) {
+        return prev.map(item =>
+          item === existing ? { ...item, quantity: item.quantity + qty } : item
+        );
       }
       return [...prev, { ...product, color: chosenColor, quantity: qty }];
     });
     triggerToast(`Added ${product.name} to cart!`);
-  };
+  }, [triggerToast]);
+
+  // Lock page scroll behind modals; Escape closes whatever is open
+  useEffect(() => {
+    document.body.style.overflow = (isCartOpen || selectedProduct) ? 'hidden' : '';
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setIsCartOpen(false);
+        setSelectedProduct(null);
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [isCartOpen, selectedProduct]);
+
+  // An empty cart can't be on the delivery step
+  useEffect(() => {
+    if (cartItems.length === 0) setCheckoutStep('cart');
+  }, [cartItems.length]);
 
   const updateQuantity = (id, color, delta) => {
     setCartItems(prev => {
@@ -348,8 +569,8 @@ export default function App() {
       
       {}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-cyan-500 text-slate-950 px-5 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-3 animate-bounce">
-          <CheckCircle className="w-5 h-5" />
+        <div role="status" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[60] sm:max-w-sm bg-cyan-500 text-slate-950 px-5 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 animate-fadeIn">
+          <CheckCircle className="w-5 h-5 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -361,18 +582,20 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <button
+            type="button"
+            aria-label="fennyfone, back to top"
+            className="group"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
             <img
               src="/logo.png"
-              alt="fennyfone logo"
-              width="36"
-              height="43"
-              className="h-9 w-auto group-hover:scale-105 transition-transform"
+              alt="fennyfone"
+              width="34"
+              height="40"
+              className="h-10 w-auto group-hover:scale-105 transition-transform"
             />
-            <span className="text-2xl font-black tracking-wider bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-              fennyfone<span className="text-cyan-400">.</span>
-            </span>
-          </div>
+          </button>
 
           {/* Nav Links - Desktop */}
           <nav className="hidden md:flex items-center gap-8 font-medium text-sm text-slate-300">
@@ -401,6 +624,8 @@ export default function App() {
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200"
+              aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -417,105 +642,8 @@ export default function App() {
           </div>
         )}
       </header>
-      {/* Hero ads: rotates automatically every few seconds */}
-      <section className="relative px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div
-            className="relative overflow-hidden rounded-3xl h-[560px] sm:h-[470px] lg:h-[440px] shadow-2xl shadow-black/40"
-            onMouseEnter={() => setHeroPaused(true)}
-            onMouseLeave={() => setHeroPaused(false)}
-            onFocus={() => setHeroPaused(true)}
-            onBlur={() => setHeroPaused(false)}
-            role="region"
-            aria-roledescription="carousel"
-            aria-label="Featured offers"
-          >
-            {HERO_SLIDES.map((slide, i) => {
-              const isActive = i === activeSlide;
-              return (
-                <div
-                  key={slide.id}
-                  aria-hidden={!isActive}
-                  className={`absolute inset-0 grid grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1 lg:grid-cols-2 items-center transition-opacity duration-700 ease-in-out ${slide.bg} ${
-                    isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
-                  }`}
-                >
-                  {/* Decorative glow */}
-                  <div className="pointer-events-none absolute -right-24 -bottom-32 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-                  <div className="pointer-events-none absolute -left-24 -top-32 w-80 h-80 rounded-full bg-cyan-300/10 blur-3xl" />
+      <HeroCarousel onViewProduct={setSelectedProduct} />
 
-                  {/* Text */}
-                  <div className="relative z-20 px-7 sm:px-10 lg:px-14 pt-8 lg:pt-0 lg:pb-8">
-                    <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-widest text-cyan-200">
-                      {slide.eyebrow}
-                    </span>
-                    <h1 className="mt-2 text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
-                      {slide.title}
-                    </h1>
-                    <p className="mt-3 max-w-md text-sm sm:text-base text-white/90 leading-relaxed line-clamp-3">
-                      {slide.text}
-                    </p>
-                    <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-3">
-                      <a
-                        href={slide.href}
-                        tabIndex={isActive ? 0 : -1}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-slate-900 text-sm font-bold hover:bg-slate-100 transition-colors"
-                      >
-                        {slide.cta} <ArrowRight className="w-4 h-4" />
-                      </a>
-                      {slide.productIndex !== undefined && (
-                        <button
-                          tabIndex={isActive ? 0 : -1}
-                          onClick={() => setSelectedProduct(PRODUCTS[slide.productIndex])}
-                          className="px-5 py-2.5 rounded-lg border border-white/40 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
-                        >
-                          View Details
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Visual: a 4:3 stage so the collage keeps its shape at any width */}
-                  <div className="relative z-10 h-full min-h-0 w-full flex items-center justify-center px-6 pt-2 pb-14 lg:p-8">
-                    <div className="relative h-full max-w-full aspect-[4/3]">
-                      {slide.images.map(img => (
-                        <img
-                          key={img.alt}
-                          src={img.src}
-                          alt={img.alt}
-                          loading={i === 0 ? 'eager' : 'lazy'}
-                          className={`absolute object-cover rounded-2xl shadow-2xl shadow-black/40 ring-1 ring-white/20 ${img.pos}`}
-                        />
-                      ))}
-                      {slide.chip && (
-                        <div className={`absolute z-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 px-4 py-2 text-white shadow-xl ${slide.chip.pos}`}>
-                          <div className="text-[10px] sm:text-xs uppercase tracking-wider text-white/80">{slide.chip.top}</div>
-                          <div className="text-base sm:text-xl font-black leading-tight">{slide.chip.bottom}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Slide dots */}
-            <div className="absolute z-20 bottom-5 left-1/2 -translate-x-1/2 lg:left-14 lg:translate-x-0 flex items-center gap-2">
-              {HERO_SLIDES.map((slide, i) => (
-                <button
-                  key={slide.id}
-                  onClick={() => setActiveSlide(i)}
-                  aria-label={`Show offer ${i + 1}: ${slide.title}`}
-                  aria-current={i === activeSlide}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    i === activeSlide ? 'w-8 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
       <section id="store" className="py-16 bg-slate-900/50 border-y border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -583,74 +711,8 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
-                <div 
-                  key={product.id}
-                  className="group relative bg-slate-950 rounded-2xl border border-slate-800/80 overflow-hidden flex flex-col hover:border-cyan-500/40 transition-all duration-300 hover:-translate-y-1 shadow-lg"
-                >
-                  {/* Badge */}
-                  {product.badge && (
-                    <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-cyan-500 text-slate-950 shadow-md">
-                      {product.badge}
-                    </div>
-                  )}
-
-                  {/* Image Container */}
-                  <div 
-                    onClick={() => setSelectedProduct(product)}
-                    className="relative aspect-square overflow-hidden bg-slate-900 cursor-pointer"
-                  >
-                    <img 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="px-4 py-2 rounded-lg bg-slate-900/90 border border-slate-700 text-white font-bold text-xs shadow-xl backdrop-blur-sm">
-                        View Specs
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                        <span>{product.category}</span>
-                        <div className="flex items-center gap-1 text-amber-400">
-                          <Star className="w-3.5 h-3.5 fill-current" />
-                          <span className="font-bold text-slate-300">{product.rating}</span>
-                        </div>
-                      </div>
-
-                      <h3 
-                        onClick={() => setSelectedProduct(product)}
-                        className="font-bold text-white text-base hover:text-cyan-400 transition-colors cursor-pointer line-clamp-1"
-                      >
-                        {product.name}
-                      </h3>
-                      
-                      <p className="text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
-                        {product.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-5 pt-4 border-t border-slate-900 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-slate-500 line-through">${product.originalPrice}</div>
-                        <div className="text-lg font-black text-white">${product.price}</div>
-                      </div>
-
-                      <button 
-                        onClick={() => addToCart(product)}
-                        className="p-3 rounded-xl bg-slate-900 hover:bg-cyan-500 text-slate-300 hover:text-slate-950 border border-slate-800 hover:border-cyan-500 transition-all"
-                        aria-label="Add to cart"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              {filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} onSelect={setSelectedProduct} onAdd={addToCart} />
               ))}
             </div>
           )}
@@ -693,7 +755,7 @@ export default function App() {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800/80">
               <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mb-4">
-                <Shield className="w-6 h-6" />
+                <ShieldCheck className="w-6 h-6" />
               </div>
               <h3 className="font-bold text-white text-lg">Authentic Guarantee</h3>
               <p className="text-slate-400 text-sm mt-2">Every gadget is 100% genuine with official brand manufacturer warranty included.</p>
@@ -709,7 +771,7 @@ export default function App() {
 
             <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800/80">
               <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4">
-                <MessageSquare className="w-6 h-6" />
+                <MessageCircle className="w-6 h-6" />
               </div>
               <h3 className="font-bold text-white text-lg">Instant WhatsApp Order</h3>
               <p className="text-slate-400 text-sm mt-2">No complicated checkouts. Confirm orders directly on WhatsApp with live support.</p>
@@ -733,10 +795,10 @@ export default function App() {
             <div className="grid md:grid-cols-2">
               {/* Product Image */}
               <div className="bg-slate-950 p-8 flex items-center justify-center">
-                <img 
-                  src={selectedProduct.image} 
-                  alt={selectedProduct.name} 
-                  className="max-h-80 object-contain rounded-2xl"
+                <SafeImage
+                  src={sized(selectedProduct.image, 800)}
+                  alt={selectedProduct.name}
+                  className="w-full max-w-xs max-h-80 aspect-square object-cover rounded-2xl"
                 />
               </div>
 
@@ -839,7 +901,7 @@ export default function App() {
                     <div className="space-y-4">
                       {cartItems.map((item, idx) => (
                         <div key={`${item.id}-${idx}`} className="flex gap-4 p-3 bg-slate-950 rounded-xl border border-slate-800/80">
-                          <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg bg-slate-900" />
+                          <SafeImage src={sized(item.image, 160)} alt={item.name} width="64" height="64" className="w-16 h-16 object-cover rounded-lg bg-slate-900 shrink-0" />
                           <div className="flex-1">
                             <h4 className="text-sm font-bold text-white line-clamp-1">{item.name}</h4>
                             <div className="text-xs text-slate-400 mt-0.5">${item.price}</div>
@@ -991,7 +1053,7 @@ export default function App() {
                       type="submit"
                       className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
                     >
-                      <MessageSquare className="w-4 h-4 fill-current" /> Order via WhatsApp
+                      <MessageCircle className="w-4 h-4" /> Order via WhatsApp
                     </button>
                   )}
                 </div>
@@ -1008,10 +1070,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-slate-900">
             
             <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <img src="/logo.png" alt="fennyfone logo" width="32" height="38" className="h-8 w-auto" />
-                <span className="text-xl font-black text-white">fennyfone<span className="text-cyan-400">.</span></span>
-              </div>
+              <img src="/logo.png" alt="fennyfone" width="40" height="48" loading="lazy" className="h-12 w-auto" />
               <p className="text-xs text-slate-500 leading-relaxed">
                 Your premier destination for high-performance mobile devices, chargers, wireless audio, and protection accessories.
               </p>
@@ -1030,7 +1089,7 @@ export default function App() {
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Customer Support</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="https://wa.me/2348123456789" target="_blank" rel="noreferrer" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> WhatsApp Live Support</a></li>
+                <li><a href="https://wa.me/2348123456789" target="_blank" rel="noreferrer" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> WhatsApp Live Support</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Track Order Status</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Warranty & Returns</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Terms of Service</a></li>
