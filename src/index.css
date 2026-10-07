@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+/* Dark canvas + dark browser chrome: no white flash on overscroll, address-bar resize or scrollbars */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  background: #020617;
+  color-scheme: dark;
+}
 body {
   margin: 0;
   min-width: 320px;

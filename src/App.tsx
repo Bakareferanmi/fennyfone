@@ -4,6 +4,7 @@ import {
   BatteryCharging, Watch, Filter, X, Plus, Minus, Trash2, ArrowRight, Star,
   CheckCircle, Menu, LayoutGrid, Send
 } from 'lucide-react';
+import { LegalModal, CookieBanner, loadConsent, saveConsent } from './LegalModal';
 
 const PRODUCTS = [
   {
@@ -240,7 +241,7 @@ function HeroCarousel({ onViewProduct }) {
     <section className="relative px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-6 sm:pb-8">
       <div className="max-w-7xl mx-auto">
         <div
-          className="relative isolate overflow-hidden bg-slate-950 [transform:translateZ(0)] rounded-2xl sm:rounded-3xl h-[250px] sm:h-[390px] lg:h-[440px] shadow-2xl shadow-black/40"
+          className="relative isolate overflow-hidden bg-slate-950 rounded-2xl sm:rounded-3xl h-[250px] sm:h-[390px] lg:h-[440px] shadow-2xl shadow-black/40"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
           onFocus={() => setPaused(true)}
@@ -259,8 +260,8 @@ function HeroCarousel({ onViewProduct }) {
                   isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
                 }`}
               >
-                <div className="pointer-events-none absolute -right-24 -bottom-32 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-                <div className="pointer-events-none absolute -left-24 -top-32 w-80 h-80 rounded-full bg-cyan-300/10 blur-3xl" />
+                {/* Soft light: plain gradients (no blur filters, which can leave hairlines while scrolling) */}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_90%_100%,rgba(255,255,255,0.12),transparent_45%),radial-gradient(circle_at_0%_0%,rgba(103,232,249,0.12),transparent_40%)]" />
 
                 {/* Text */}
                 <div className="relative z-20 pl-5 pr-2 sm:pl-10 sm:pr-4 lg:pl-14 pb-5 sm:pb-6">
@@ -431,6 +432,14 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Legal pages ('privacy' | 'refund' | 'cookies') and cookie consent (null until the visitor chooses)
+  const [legalPage, setLegalPage] = useState(null);
+  const [consent, setConsent] = useState(loadConsent);
+  const chooseConsent = useCallback((choices) => {
+    setConsent(saveConsent(choices));
+    setLegalPage(null);
+  }, []);
+
   // Checkout form state
   const [checkoutStep, setCheckoutStep] = useState('cart'); // 'cart' | 'details'
   const [customerData, setCustomerData] = useState({
@@ -473,12 +482,13 @@ export default function App() {
 
   // Lock page scroll behind modals; Escape closes whatever is open
   useEffect(() => {
-    document.body.style.overflow = (isCartOpen || selectedProduct) ? 'hidden' : '';
+    document.body.style.overflow = (isCartOpen || selectedProduct || legalPage) ? 'hidden' : '';
     const onKey = (e) => {
       if (e.key === 'Escape') {
         setIsCartOpen(false);
         setSelectedProduct(null);
         setMobileMenuOpen(false);
+        setLegalPage(null);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -486,7 +496,7 @@ export default function App() {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [isCartOpen, selectedProduct]);
+  }, [isCartOpen, selectedProduct, legalPage]);
 
   // An empty cart can't be on the delivery step
   useEffect(() => {
@@ -578,7 +588,7 @@ export default function App() {
       
       {}
       {toastMessage && (
-        <div role="status" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[60] sm:max-w-sm bg-cyan-500 text-slate-950 px-5 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 animate-fadeIn">
+        <div role="status" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[80] sm:max-w-sm bg-cyan-500 text-slate-950 px-5 py-3 rounded-xl shadow-2xl font-bold text-sm flex items-center gap-3 animate-fadeIn">
           <CheckCircle className="w-5 h-5 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -586,7 +596,7 @@ export default function App() {
 
       {}
       <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        scrolled ? 'bg-slate-950/95 backdrop-blur-md border-b border-slate-800 py-3 shadow-xl shadow-black/30' : 'bg-transparent py-5'
+        scrolled ? 'bg-slate-950 py-3 shadow-lg shadow-black/40' : 'bg-transparent py-5'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
@@ -643,7 +653,7 @@ export default function App() {
 
         {/* Mobile Dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-slate-900/95 backdrop-blur-lg border-b border-slate-800 px-6 py-4 mt-3 space-y-3">
+          <div className="md:hidden bg-slate-900 border-b border-slate-800 px-6 py-4 mt-3 space-y-3">
             <a href="#store" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-slate-200 hover:text-cyan-400">Store Catalog</a>
             <a href="#trending" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-slate-200 hover:text-cyan-400">Trending</a>
             <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-slate-200 hover:text-cyan-400">Why Us</a>
@@ -757,7 +767,7 @@ export default function App() {
 
             {/* Product visual */}
             <div className="relative z-10 mx-auto w-full max-w-md aspect-[4/3]">
-              <div className="pointer-events-none absolute inset-6 rounded-full bg-cyan-500/20 blur-3xl" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgba(6,182,212,0.22),transparent_65%)]" />
               <SafeImage
                 src={sized(PRODUCTS[1].image, 700)}
                 alt={PRODUCTS[1].name}
@@ -1121,7 +1131,7 @@ export default function App() {
               <ul className="space-y-2 text-xs">
                 <li><a href="https://wa.me/2348123456789" target="_blank" rel="noreferrer" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"><WhatsAppIcon className="w-4 h-4" /> WhatsApp Live Support</a></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Track Order Status</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Warranty & Returns</a></li>
+                <li><button type="button" onClick={() => setLegalPage('refund')} className="hover:text-cyan-400 transition-colors text-left">Warranty & Returns</button></li>
                 <li><a href="#" className="hover:text-cyan-400 transition-colors">Terms of Service</a></li>
               </ul>
             </div>
@@ -1146,13 +1156,34 @@ export default function App() {
           <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 gap-4">
             <p>© 2026 fennyfone. All rights reserved.</p>
             <div className="flex items-center gap-6">
-              <a href="#" className="hover:text-slate-400">Privacy Policy</a>
-              <a href="#" className="hover:text-slate-400">Refund Terms</a>
-              <a href="#" className="hover:text-slate-400">Cookie Settings</a>
+              <button type="button" onClick={() => setLegalPage('privacy')} className="hover:text-slate-400 transition-colors">Privacy Policy</button>
+              <button type="button" onClick={() => setLegalPage('refund')} className="hover:text-slate-400 transition-colors">Refund Terms</button>
+              <button type="button" onClick={() => setLegalPage('cookies')} className="hover:text-slate-400 transition-colors">Cookie Settings</button>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* Privacy Policy, Refund Terms and Cookie Settings */}
+      {legalPage && (
+        <LegalModal
+          page={legalPage}
+          consent={consent}
+          onClose={() => setLegalPage(null)}
+          onOpenPage={setLegalPage}
+          onSaveConsent={chooseConsent}
+        />
+      )}
+
+      {/* First-visit cookie banner: shown until the visitor makes a choice */}
+      {!consent && !legalPage && (
+        <CookieBanner
+          onAcceptAll={() => chooseConsent({ analytics: true, marketing: true })}
+          onReject={() => chooseConsent({ analytics: false, marketing: false })}
+          onCustomize={() => setLegalPage('cookies')}
+          onOpenPrivacy={() => setLegalPage('privacy')}
+        />
+      )}
 
     </div>
   );
